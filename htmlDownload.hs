@@ -44,25 +44,35 @@ isUndergraduateCourse = (<graduateCourseNumber) . getCourseInt
 capitalize :: String -> String 
 capitalize = map toUpper 
 
-getCourseTitle s =  capitalize $ addTheL $ (!! 1) $ splitOn "-" s
+getCourseTitle s =  capitalize $ removeSlashes $ addTheL $ (!! 1) $ splitOn "-" s
   where addTheL st = if "89A" `isSuffixOf` capitalize st then st ++ "-L" else st --a hacky fix but a fix  
-        
+        removeSlashes st = if last st == '/' then init st else st  
+
+
+
 zipURLsAndTitles = map (getCourseTitle &&& id) 
 
-getTitlesAndUrls :: String -> [String] 
 getTitlesAndUrls = zipURLsAndTitles . filter isUndergraduateCourse . getECSLinks 
+
+makeCourseTuple :: (String, String) -> IO (String, String)
+makeCourseTuple (name,url) = do html <- getHTMLBody url
+                                return (courseDirectory ++ "/" ++ name ++ ".html", html) 
+
+makeCourseNameCoursePageTuples = mapM makeCourseTuple 
+
+writeFiles = mapM $ uncurry writeFile 
 
 main = do 
   rawHTML <- getHTMLBody courseURLs 
   let titlesAndURLs = getTitlesAndUrls rawHTML
 
-  createDirectoryIfMissing False "exp_course_dec" 
+  createDirectoryIfMissing False courseDirectory  
+  putStrLn "Downloading Files"
 
+  courseTuples <- makeCourseNameCoursePageTuples titlesAndURLs
 
-  print titlesAndURLs
+  putStrLn "Writing Files"
+  writeFiles courseTuples 
 
-  return rawHTML
-
-
-
+  return titlesAndURLs 
 
